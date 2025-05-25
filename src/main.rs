@@ -70,15 +70,10 @@ fn handle_pack(path: String, private_key: Option<String>) -> Result<()> {
     info("Create a smart contract bundle file!")?;
     info(format!("Read folder: {}", path))?;
 
-    // One-liner mit context
     let absolute_path = std::fs::canonicalize(&path).context("Failed to resolve absolute path")?;
-
-    // Verzeichnis-Check
     if !absolute_path.is_dir() {
         bail!("Not a directory: {}", absolute_path.display());
     }
-
-    env::set_current_dir(&absolute_path).context("Failed to set working directory")?;
 
     info(format!(
         "Working directory set to: {}",
@@ -92,7 +87,12 @@ fn handle_pack(path: String, private_key: Option<String>) -> Result<()> {
     let manifest = read_manifest(&absolute_path)?;
 
     // get private key
-    let key_path: Option<&Path> = private_key.as_ref().map(|s| Path::new(s));
+    let key_path = private_key
+        .as_ref()
+        .map(|s| {
+            std::fs::canonicalize(s).with_context(|| format!("Private key file not found: {}", s))
+        })
+        .transpose()?;
 
     // build
     build_wasm(&absolute_path)?;

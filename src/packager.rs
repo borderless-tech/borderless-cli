@@ -5,14 +5,14 @@ use borderless_hash::Hash256;
 use cliclack::log::info;
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::template::ContractManifest;
 
 pub(crate) fn pack_wasm_contract(
     manifest: &ContractManifest,
     wasm: &[u8],
-    private_key: Option<&Path>,
+    private_key: Option<PathBuf>,
 ) -> Result<Bundle> {
     info("Pack Smart Contract")?;
 
@@ -41,7 +41,7 @@ pub(crate) fn pack_wasm_contract(
     let contract = Contract { meta, src };
 
     let ident: Option<Ident> = if private_key.is_some() {
-        let keypair = load_pem_private_key(private_key.unwrap())?;
+        let keypair = load_pem_private_key(private_key.unwrap().as_path())?;
         let json = serde_json::to_string(&contract)?;
         let signature = keypair.sign(json.as_bytes());
 
