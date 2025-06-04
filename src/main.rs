@@ -75,7 +75,7 @@ fn main() -> Result<()> {
     // Parse commands
     match cli.command {
         Commands::Init { project_name } => cli::handle_init(project_name)?,
-        Commands::Pack { project_path } => cli::handle_pack(project_path, cli.private_key)?,
+        Commands::Pack { project_path } => cli::handle_pack(project_path)?,
         Commands::Deploy => todo!(),
         Commands::Link => todo!(),
         Commands::Publish => todo!(),

@@ -7,24 +7,24 @@ use regex;
 use std::path::Path;
 use std::{env, fs};
 
-pub fn handle_init(name: String) -> Result<()> {
+pub fn handle_init(name_or_path: String) -> Result<()> {
     intro("📜 Borderless Contract Creator")?;
 
     // build the project path
-    let project_path = if name == "." {
+    let project_path = if name_or_path == "." {
         env::current_dir()?
     } else {
         let current_dir = env::current_dir()?;
-        current_dir.join(&name)
+        current_dir.join(&name_or_path)
     };
 
     // check the project path
-    if name != "." && project_path.exists() {
-        bail!("Directory '{}' already exists", name);
+    if name_or_path != "." && project_path.exists() {
+        bail!("Directory '{}' already exists", name_or_path);
     }
 
     // create dir in case of subfolder
-    if name != "." {
+    if name_or_path != "." {
         fs::create_dir_all(&project_path)?;
         info(format!(
             "Created project directory: {}",
@@ -77,12 +77,17 @@ fn create_project_structure(project_path: &Path) -> Result<()> {
         })
         .interact()?;
 
+    // :D Man this is annoying as fuck you should not be prompted for that
+    // -> Maybe this is something we can move to the config section
     let author: String = input("Author:")
         .placeholder("John Doe")
         .validate(|input: &String| {
             if input.trim().is_empty() {
                 Err("Author cannot be empty")
-            } else if !input.chars().all(|c| c.is_alphabetic()) {
+            } else if !input
+                .chars()
+                .all(|c| c.is_alphabetic() || c.is_whitespace())
+            {
                 Err("Only letters allowed")
             } else if input.len() > 50 {
                 Err("Contract name must be 50 characters or less")
@@ -92,6 +97,7 @@ fn create_project_structure(project_path: &Path) -> Result<()> {
         })
         .interact()?;
 
+    // Same as with author
     let email: String = input("Email:")
         .placeholder("john.doe@example.com")
         .validate(|input: &String| {
@@ -117,7 +123,8 @@ fn create_project_structure(project_path: &Path) -> Result<()> {
 
     info("Generate contract manifest")?;
     let manifest_file = project_path.join("Manifest.toml");
-    let manifest = build_contract_manifest(&contract_name, "0.1.0", "0.2.0")?;
+
+    let manifest = build_contract_manifest(&contract_name);
     std::fs::write(&manifest_file, manifest)?;
 
     info("Generate Cargo settings!")?;

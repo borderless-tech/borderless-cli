@@ -1,61 +1,70 @@
 use anyhow::{Context, Result};
+use borderless_pkg::{Capabilities, PkgMeta};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use toml;
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct ContractManifest {
-    pub contract: ContractInfo,
-    pub sdk: SdkInfo,
-}
+// TODO: Let's use crago-embed to handle the templates
 
+// Dummy definition of a manifest
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ContractInfo {
+pub struct Manifest {
     pub name: String,
-    pub version: String,
-    pub author: String,
-    pub desc: String,
+    pub app_name: Option<String>,
+    pub app_module: Option<String>,
+    pub capabilities: Option<Capabilities>,
+    pub meta: Option<PkgMeta>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct SdkInfo {
-    pub version: String,
+const DEFAULT_CONTRACT_MANIFEST: &str = r#"
+[Contract]
+name = __NAME__
+# app_name = "my-fancy-app"
+# app_module = "sub-module"
+
+# [Meta]
+# authors = [  ]
+# description = "a description of your contract"
+# documentation = "url to the package documentation"
+# license = "SPDX 2.3 license expression"
+# repository = "link to the repository"
+"#;
+
+const DEFAULT_AGENT_MANIFEST: &str = r#"
+[Agent]
+name = __NAME__
+# app_name = "my-fancy-app"
+# app_module = "sub-module"
+
+[Capabilities]
+network = true
+websocket = true
+url_whitelist = []
+
+# [Meta]
+# authors = [  ]
+# description = "a description of your contract"
+# documentation = "url to the package documentation"
+# license = "SPDX 2.3 license expression"
+# repository = "link to the repository"
+"#;
+
+pub fn build_contract_manifest(contract_name: &str) -> String {
+    DEFAULT_CONTRACT_MANIFEST.replacen("__NAME__", contract_name, 1)
 }
 
-pub(crate) fn build_contract_manifest(
-    contract_name: &str,
-    contract_version: &str,
-    sdk_version: &str,
-) -> Result<String> {
-    let manifest = ContractManifest {
-        contract: ContractInfo {
-            name: contract_name.to_string(),
-            version: contract_version.to_string(),
-            author: "".to_string(),
-            desc: "".to_string(),
-        },
-        sdk: SdkInfo {
-            version: sdk_version.to_string(),
-        },
-    };
-
-    let toml_string = toml::to_string_pretty(&manifest)?; // Pretty formatting
-    Ok(toml_string)
-}
-
-pub(crate) fn read_manifest(work_dir: &Path) -> Result<ContractManifest> {
+pub fn read_manifest(work_dir: &Path) -> Result<Manifest> {
     let manifest_path = work_dir.join("Manifest.toml");
 
     let content =
         std::fs::read_to_string(&manifest_path).context("Failed to read Manifest.toml")?;
 
-    let manifest: ContractManifest =
-        toml::from_str(&content).context("Failed to parse Manifest.toml")?;
+    let manifest: Manifest = toml::from_str(&content).context("Failed to parse Manifest.toml")?;
 
     Ok(manifest)
 }
 
-pub(crate) fn generate_lib_rs() -> String {
+pub fn generate_lib_rs() -> String {
     let lib_content = r#"#[borderless::contract]
 pub mod flipper {
     use borderless::{Result, *};

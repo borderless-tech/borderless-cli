@@ -1,42 +1,30 @@
-// use crate::packager::pack_wasm_contract;
-use crate::template::read_manifest;
 use anyhow::{bail, Context, Result};
 use cliclack::{log::info, log::success, spinner};
 use std::path::{Path, PathBuf};
 
-pub fn handle_pack(path: PathBuf, private_key: Option<String>) -> Result<()> {
-    info("Create a smart contract bundle file!")?;
-    info(format!("Read folder: {}", path.display()))?;
-
+pub fn handle_pack(path: PathBuf) -> Result<()> {
     let absolute_path = std::fs::canonicalize(&path).context("Failed to resolve absolute path")?;
     if !absolute_path.is_dir() {
         bail!("Not a directory: {}", absolute_path.display());
     }
+
+    // TODO: Check if contract or agent
+
+    info("Create package")?;
+    info(format!("Read folder: {}", path.display()))?;
 
     info(format!(
         "Working directory set to: {}",
         absolute_path.display()
     ))?;
 
-    // check for manifest file
-    check_manifest(&absolute_path)?;
-
-    // read manifest
-    let manifest = read_manifest(&absolute_path)?;
-
-    // get private key
-    let _key_path = private_key
-        .as_ref()
-        .map(|s| {
-            std::fs::canonicalize(s).with_context(|| format!("Private key file not found: {}", s))
-        })
-        .transpose()?;
-
     // build
     build_wasm(&absolute_path)?;
 
+    let contract_name = "foo";
+
     // read wasm as bytes
-    let _wasm_bytes = read_wasm_file(&absolute_path, &manifest.contract.name)?;
+    let _wasm_bytes = read_wasm_file(&absolute_path, contract_name)?;
 
     // pack contract
     // let bundle = pack_wasm_contract(&manifest, &wasm_bytes, key_path)?;
@@ -56,6 +44,7 @@ fn read_wasm_file(work_dir: &Path, contract_name: &str) -> Result<Vec<u8>> {
 
     // Prüfen ob File existiert
     if !wasm_path.exists() {
+        // TODO: In this case we could try to invoke cargo under the hood and compile the binary
         bail!("WASM file not found: {}", wasm_path.display());
     }
 
