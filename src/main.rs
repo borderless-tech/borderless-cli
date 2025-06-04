@@ -1,21 +1,36 @@
-pub mod cli;
-pub mod packager;
-pub mod template;
-
-use crate::packager::pack_wasm_contract;
+// use crate::packager::pack_wasm_contract;
 use crate::template::{build_contract_manifest, generate_lib_rs, read_manifest};
 use anyhow::{bail, Context, Result};
-use borderless_format::Bundle;
 use cargo_toml_builder::prelude::*;
 use cargo_toml_builder::types::CrateType;
-use clap::Parser;
-use cli::{CommandLineInterface, Commands};
+use clap::{Parser, Subcommand};
 use cliclack::{input, intro, log::info, log::success, spinner};
 use regex;
 use std::path::Path;
 use std::{env, fs};
 
-extern crate cargo_toml_builder;
+// pub mod packager;
+pub mod template;
+
+#[derive(Parser)]
+#[command(name = "borderless-cli")]
+#[command(about = "borderless cli tools")]
+#[command(version = "1.0")]
+pub struct CommandLineInterface {
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    New {
+        project_name: String,
+    },
+    Pack {
+        project_path: String,
+        private_key: Option<String>,
+    },
+}
 
 fn main() -> Result<()> {
     let cli = CommandLineInterface::parse();
@@ -101,9 +116,9 @@ fn handle_pack(path: String, private_key: Option<String>) -> Result<()> {
     let wasm_bytes = read_wasm_file(&absolute_path, &manifest.contract.name)?;
 
     // pack contract
-    let bundle = pack_wasm_contract(&manifest, &wasm_bytes, key_path)?;
+    // let bundle = pack_wasm_contract(&manifest, &wasm_bytes, key_path)?;
 
-    save_bundle_to_file(&bundle, &env::current_dir()?)?;
+    // save_bundle_to_file(&bundle, &env::current_dir()?)?;
     success("Contract package created!")?;
     Ok(())
 }
@@ -327,9 +342,9 @@ fn read_wasm_file(work_dir: &Path, contract_name: &str) -> Result<Vec<u8>> {
     Ok(wasm_bytes)
 }
 
-fn save_bundle_to_file(bundle: &Bundle, path: &Path) -> Result<()> {
-    let json = serde_json::to_string_pretty(bundle)?;
-    std::fs::write(path.join("package.json"), json)?;
-    info(format!("Bundle saved to {}", path.display()))?;
-    Ok(())
-}
+// fn save_bundle_to_file(bundle: &Bundle, path: &Path) -> Result<()> {
+//     let json = serde_json::to_string_pretty(bundle)?;
+//     std::fs::write(path.join("package.json"), json)?;
+//     info(format!("Bundle saved to {}", path.display()))?;
+//     Ok(())
+// }
