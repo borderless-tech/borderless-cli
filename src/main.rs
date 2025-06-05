@@ -107,6 +107,7 @@ mod config {
 
     /// Configuration of the cmdline interface
     #[derive(Debug, Default, Serialize, Deserialize)]
+    #[serde(rename_all = "kebab-case")]
     pub struct Config {
         /// Author information
         pub author: Option<Author>,

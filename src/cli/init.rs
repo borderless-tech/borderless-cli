@@ -2,7 +2,6 @@ use crate::config::get_config;
 use crate::template::{generate_lib_rs, generate_manifest};
 use anyhow::{bail, Result};
 use borderless_pkg::PkgType;
-use cliclack::log::error;
 use cliclack::{confirm, select};
 use cliclack::{input, intro, log::info, log::success};
 use std::path::{Path, PathBuf};
@@ -83,8 +82,7 @@ pub fn handle_init(name_or_path: Option<String>) -> Result<()> {
         ))
         .interact()?
     {
-        error("Process aborted by user")?;
-        std::process::exit(1);
+        bail!("Process aborted by user.");
     }
 
     // create project path
