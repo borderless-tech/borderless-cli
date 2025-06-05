@@ -2,8 +2,6 @@ use crate::config::get_config;
 use crate::template::{generate_lib_rs, generate_manifest};
 use anyhow::{bail, Result};
 use borderless_pkg::PkgType;
-use cargo_toml_builder::prelude::*;
-use cargo_toml_builder::types::CrateType;
 use cliclack::log::error;
 use cliclack::{confirm, select};
 use cliclack::{input, intro, log::info, log::success};
@@ -130,11 +128,11 @@ fn create_project_structure(
     };
 
     // Create Cargo.toml
-    let cargo_toml_content = build_cargo_toml(&pkg_name)?;
+    let cargo_toml_content = build_cargo_toml(&pkg_name, &author)?;
     fs::write(&cargo_file, cargo_toml_content)?;
 
     // Create Manifest.toml
-    let manifest = generate_manifest(&pkg_name, &pkg_type, vec![author.clone()])?;
+    let manifest = generate_manifest(&pkg_name, &pkg_type, vec![author])?;
     fs::write(&manifest_file, manifest)?;
 
     // Create src/lib.rs
@@ -145,46 +143,46 @@ fn create_project_structure(
     Ok(())
 }
 
-fn build_cargo_toml(name: &str) -> Result<String> {
-    let target = LibTarget::new().crate_type(CrateType::Cdylib).build();
+fn build_cargo_toml(name: &str, author: &str) -> Result<String> {
+    use cargo_toml::*;
 
-    let cargo_toml = CargoToml::builder()
-        // Package Section
-        .name(name)
-        .author("foo <foo@baa.com>")
-        .version("0.1.0")
-        .lib(target)
-        .dependency(Dependency::branch(
-            "borderless",
-            "https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git",
-            "main",
-        ))
-        .dependency(Dependency::version("serde", "1.0"))
-        .build()?;
+    // Build package ( since we don't use the metadata section, we set the generic type to unit '()' )
+    let mut package: Package<()> = Package::default();
+    package.name = name.to_string();
+    package.version = Inheritable::Set("0.1.0".to_string());
+    package.edition = Inheritable::Set(Edition::E2021);
+    package.authors = Inheritable::Set(vec![author.to_string()]);
 
-    // toml postprocessing
-    // fix edition
-    let mut toml = cargo_toml.to_string();
-    toml = toml.replace("[package]", "[package]\nedition = \"2021\"");
+    // Specify dependencies
+    let mut dependencies = DepsSet::new();
+    dependencies.insert("serde".to_string(), Dependency::Simple("1.0".to_string()));
+    let borderless = DependencyDetail {
+        git: Some("https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git".to_string()),
+        branch: Some("main".to_string()),
+        ..Default::default()
+    };
+    dependencies.insert(
+        "borderless".to_string(),
+        Dependency::Detailed(Box::new(borderless)),
+    );
 
-    // Fix crate-type format
-    let re = regex::Regex::new(r#"crate[_-]type\s*=\s*"([^"]+)""#).unwrap();
-    toml = re
-        .replace_all(&toml, |caps: &regex::Captures| {
-            let crate_type = &caps[1];
-            format!(r#"crate-type = ["{}"]"#, crate_type)
-        })
-        .trim() // remove leading and trailing whitespace
-        .to_string();
+    let mut lib = Product::default();
+    lib.crate_type = vec!["cdylib".to_string()];
 
-    // TODO only in verbose mode
-    // info(format!("Generate project toml:\n{}", toml))?;
+    let cargo = Manifest {
+        package: Some(package),
+        dependencies,
+        lib: Some(lib),
+        ..Default::default()
+    };
+
+    let toml = toml::to_string(&cargo)?.replace("required-features = []\n", "");
     Ok(toml)
 }
 
 /// Asks the user for the author
 pub fn query_author() -> Result<String> {
-    info("No author set in config. If you don't want to input these values, you can set the `author` field in your config.")?;
+    info("Please tell us who you are. If you don't want to input these values everytime, you can set the `author` field in your config.")?;
     let author: String = input("Author:")
         .placeholder("John Doe")
         .validate(|input: &String| {
