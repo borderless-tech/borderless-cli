@@ -34,7 +34,7 @@ pub mod __module_name__ {
     impl __StateName__ {
         #[action]
         fn flip_switch(&mut self) {
-            self.set_switch(!self.switch);
+            self.switch = !self.switch;
         }
 
         #[schedule(interval = "10s", delay = "5s")]
