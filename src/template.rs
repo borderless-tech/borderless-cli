@@ -35,7 +35,7 @@ pub fn generate_manifest(
     .to_vec();
 
     // Build authors expression for manifest
-    let authors_expr = format!("[ {} ]", authors.join(", "));
+    let authors_expr = format!("[ \"{}\" ]", authors.join(", "));
 
     // Build manifest from template
     let manifest = String::from_utf8(manifest_template)?
