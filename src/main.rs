@@ -1,6 +1,7 @@
 // use crate::packager::pack_wasm_contract;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use cliclack::log::error;
 use std::path::PathBuf;
 
 // pub mod packager;
@@ -67,18 +68,21 @@ pub enum Commands {
 }
 
 fn main() -> Result<()> {
+    // Register config object
+    config::init_config()?;
+
+    // Parse arguments
     let cli = Cli::parse();
-
-    // Get configuration
-    let _config = config::get_config()?;
-
-    // Parse commands
-    match cli.command {
-        Commands::Init { project_name } => cli::handle_init(project_name)?,
-        Commands::Pack { project_path } => cli::handle_pack(project_path)?,
+    let result = match cli.command {
+        Commands::Init { project_name } => cli::handle_init(project_name),
+        Commands::Pack { project_path } => cli::handle_pack(project_path),
         Commands::Deploy => todo!(),
         Commands::Link => todo!(),
         Commands::Publish => todo!(),
+    };
+
+    if let Err(e) = result {
+        error(format!("{e}"))?;
     }
 
     Ok(())
@@ -86,6 +90,8 @@ fn main() -> Result<()> {
 
 mod config {
     use anyhow::Result;
+    use borderless_pkg::Author;
+    use once_cell::sync::OnceCell;
     use serde::{Deserialize, Serialize};
     use std::env;
     use std::fs::read_to_string;
@@ -97,22 +103,34 @@ mod config {
     /// Name of the specific config directory for our config
     const CONFIG_DIR_NAME: &str = "borderless-cli";
 
-    /// Configuration of the cmdline interface
-    #[derive(Default, Serialize, Deserialize)]
-    pub struct Config {}
+    pub static CONFIG: OnceCell<Config> = OnceCell::new();
 
-    /// Retrieves the configuration
-    pub fn get_config() -> Result<Config> {
-        match config_file() {
+    /// Configuration of the cmdline interface
+    #[derive(Debug, Default, Serialize, Deserialize)]
+    pub struct Config {
+        pub author: Option<Author>,
+    }
+
+    /// Initializes the config
+    ///
+    /// This registers the static, global variable `CONFIG`, which can be easily accessed via [`get_config()`]
+    pub fn init_config() -> Result<()> {
+        let config = match config_file() {
             Some(file) => {
                 // Read config from disk
                 let content = read_to_string(file)?;
                 // NOTE: We could also just use the default config, if something fails
-                let config: Config = toml::from_str(&content)?;
-                Ok(config)
+                toml::from_str(&content)?
             }
-            None => Ok(Config::default()),
-        }
+            None => Config::default(),
+        };
+        CONFIG.set(config).expect("config is unset");
+        Ok(())
+    }
+
+    /// Returns a reference to the current config object
+    pub fn get_config() -> &'static Config {
+        CONFIG.get().expect("config has not been initialized")
     }
 
     fn config_file() -> Option<PathBuf> {

@@ -141,6 +141,7 @@ dependencies = [
  "convert_case",
  "ed25519-dalek",
  "hex",
+ "once_cell",
  "pem",
  "regex",
  "rust-embed",
