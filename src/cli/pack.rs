@@ -78,9 +78,6 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
     fs::write(pkg_file, &out)?;
     info(format!("Saved package.json"))?;
 
-    // pack contract
-    // let bundle = pack_wasm_contract(&manifest, &wasm_bytes, key_path)?;
-
     // save_bundle_to_file(&bundle, &env::current_dir()?)?;
     success(format!("Successfully packaged '{}'", pkg_info.name))?;
     Ok(())
@@ -145,13 +142,6 @@ fn read_wasm_file(work_dir: &Path, pkg_name: &str) -> Result<Vec<u8>> {
 
     Ok(wasm_bytes)
 }
-
-// fn save_bundle_to_file(bundle: &Bundle, path: &Path) -> Result<()> {
-//     let json = serde_json::to_string_pretty(bundle)?;
-//     fs::write(path.join("package.json"), json)?;
-//     info(format!("Bundle saved to {}", path.display()))?;
-//     Ok(())
-// }
 
 fn compile_project(work_dir: &std::path::Path) -> Result<()> {
     // Clean build
