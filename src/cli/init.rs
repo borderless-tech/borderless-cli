@@ -118,11 +118,11 @@ fn build_cargo_toml(name: &str) -> Result<String> {
     let cargo_toml = CargoToml::builder()
         // Package Section
         .name(name)
-        // .author(&format!("{} <{}>", author, email))
+        .author("foo <foo@baa.com>")
         .version("0.1.0")
         .lib(target)
         .dependency(Dependency::branch(
-            "borderless-sdk",
+            "borderless",
             "https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git",
             "main",
         ))
@@ -135,14 +135,14 @@ fn build_cargo_toml(name: &str) -> Result<String> {
     toml = toml.replace("[package]", "[package]\nedition = \"2021\"");
 
     // Fix crate-type format
-    // let re = regex::Regex::new(r#"crate[_-]type\s*=\s*"([^"]+)""#).unwrap();
-
-    // toml = re
-    //     .replace_all(&toml, |caps: &regex::Captures| {
-    //         let crate_type = &caps[1];
-    //         format!(r#"crate-type = ["{}"]"#, crate_type)
-    //     })
-    //     .to_string();
+    let re = regex::Regex::new(r#"crate[_-]type\s*=\s*"([^"]+)""#).unwrap();
+    toml = re
+        .replace_all(&toml, |caps: &regex::Captures| {
+            let crate_type = &caps[1];
+            format!(r#"crate-type = ["{}"]"#, crate_type)
+        })
+        .trim() // remove leading and trailing whitespace
+        .to_string();
 
     // TODO only in verbose mode
     // info(format!("Generate project toml:\n{}", toml))?;
