@@ -2,7 +2,7 @@
 #
 # App-Name and App-Module fields can be used to create a "group" out of multiple packages.
 # They are simply for organisational purposes, if your application consists of multiple contracts and/or agents.
-[Agent]
+[agent]
 name = __NAME__
 #app_name   = ""
 #app_module = ""
@@ -11,7 +11,7 @@ name = __NAME__
 #
 # Please don't forget to set the URL whitelist, if you also want to make network calls.
 # You can add "*" to the whitelist, to allow connections to everywhere.
-[Capabilities]
+[capabilities]
 network = true
 websocket = true
 url_whitelist = []
@@ -19,7 +19,7 @@ url_whitelist = []
 # --- The Meta section adds additional information to the package
 #
 # All fields of this section are optional.
-[Meta]
+[meta]
 authors = __AUTHORS__
 #description = "a short description of your agent"
 #documentation = "url to the package's documentation"

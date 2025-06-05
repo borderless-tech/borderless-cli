@@ -11,14 +11,26 @@ use toml;
 #[folder = "templates/"]
 struct Templates;
 
-// TODO: Align manifest definition with what we actually have
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Manifest {
+    pub agent: Option<Agent>,
+    pub contract: Option<Contract>,
+    pub capabilities: Option<Capabilities>,
+    pub meta: Option<PkgMeta>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Agent {
     pub name: String,
     pub app_name: Option<String>,
     pub app_module: Option<String>,
-    pub capabilities: Option<Capabilities>,
-    pub meta: Option<PkgMeta>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Contract {
+    pub name: String,
+    pub app_name: Option<String>,
+    pub app_module: Option<String>,
 }
 
 pub fn generate_manifest(
@@ -35,11 +47,13 @@ pub fn generate_manifest(
     .to_vec();
 
     // Build authors expression for manifest
-    let authors_expr = format!("[ \"{}\" ]", authors.join(", "));
+    let authors: Vec<_> = authors.into_iter().map(|s| format!("\"{s}\"")).collect();
+    let authors_expr = format!("[ {} ]", authors.join(", "));
+    let name_expr = format!("\"{pkg_name}\"");
 
     // Build manifest from template
     let manifest = String::from_utf8(manifest_template)?
-        .replace("__NAME__", pkg_name)
+        .replace("__NAME__", &name_expr)
         .replace("__AUTHORS__", &authors_expr);
     Ok(manifest)
 }
@@ -71,4 +85,33 @@ pub fn read_manifest(work_dir: &Path) -> Result<Manifest> {
     let manifest: Manifest = toml::from_str(&content).context("Failed to parse Manifest.toml")?;
 
     Ok(manifest)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_manifest_template() -> Result<()> {
+        let manifest_str = generate_manifest("some-name", &PkgType::Agent, vec![])?;
+        // Try parse that
+        let manifest: Manifest = toml::from_str(&manifest_str)?;
+        assert!(manifest.agent.is_some());
+        assert!(manifest.contract.is_none());
+        let agent = manifest.agent.unwrap();
+        assert_eq!(agent.name, "some-name");
+        Ok(())
+    }
+
+    #[test]
+    fn contract_manifest_template() -> Result<()> {
+        let manifest_str = generate_manifest("some-name", &PkgType::Contract, vec![])?;
+        // Try parse that
+        let manifest: Manifest = toml::from_str(&manifest_str)?;
+        assert!(manifest.agent.is_none());
+        assert!(manifest.contract.is_some());
+        let contract = manifest.contract.unwrap();
+        assert_eq!(contract.name, "some-name");
+        Ok(())
+    }
 }

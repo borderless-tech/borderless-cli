@@ -193,11 +193,11 @@ fn build_cargo_toml(name: &str, author: &str) -> Result<String> {
 /// Asks the user for the author
 pub fn query_author() -> Result<String> {
     info("Please tell us who you are. If you don't want to input these values everytime, you can set the `author` field in your config.")?;
-    let author: String = input("Author:")
+    let author: String = input("Name:")
         .placeholder("John Doe")
         .validate(|input: &String| {
             if input.trim().is_empty() {
-                Err("Author cannot be empty")
+                Err("Name cannot be empty")
             } else if !input
                 .chars()
                 .all(|c| c.is_alphabetic() || c.is_whitespace())
