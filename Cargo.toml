@@ -27,3 +27,5 @@ base64 = "0.22"
 
 borderless-pkg = { version = "*", git = "https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git", branch = "main" }
 borderless-hash = { version = "*", git = "https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git", branch = "main" }
+rust-embed = "8.7.2"
+convert_case = "0.8.0"

@@ -49,7 +49,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Initializes a new project
-    Init { project_name: String },
+    Init { project_name: Option<String> },
 
     /// Creates a new package from an existing project
     Pack { project_path: PathBuf },

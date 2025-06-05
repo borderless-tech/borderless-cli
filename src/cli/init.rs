@@ -1,51 +1,90 @@
-use crate::template::{build_contract_manifest, generate_lib_rs};
+use crate::template::{generate_lib_rs, generate_manifest};
 use anyhow::{bail, Result};
+use borderless_pkg::PkgType;
 use cargo_toml_builder::prelude::*;
 use cargo_toml_builder::types::CrateType;
+use cliclack::select;
 use cliclack::{input, intro, log::info, log::success};
-use regex;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-pub fn handle_init(name_or_path: String) -> Result<()> {
-    intro("📜 Borderless Contract Creator")?;
-
-    // build the project path
-    let project_path = if name_or_path == "." {
-        env::current_dir()?
+fn validate_name(input: &String) -> Result<(), &'static str> {
+    if input.trim().is_empty() {
+        Err("Contract name cannot be empty")
+    } else if !input
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        Err("Only letters, numbers, hyphens and underscores allowed")
+    } else if input.len() > 50 {
+        Err("Contract name must be 50 characters or less")
     } else {
-        let current_dir = env::current_dir()?;
-        current_dir.join(&name_or_path)
+        Ok(())
+    }
+}
+
+pub fn handle_init(name_or_path: Option<String>) -> Result<()> {
+    let pkg_type = select("Contract or Agent ?")
+        .item(PkgType::Contract, "Contract", "")
+        .item(PkgType::Agent, "Agent", "")
+        .initial_value(PkgType::Contract)
+        .interact()?;
+
+    let (type_str, placeholder) = match pkg_type {
+        PkgType::Contract => {
+            intro("📜 Borderless Contract Creator")?;
+            ("Contract", "my-contract")
+        }
+        PkgType::Agent => {
+            intro("🤖 Borderless Agent Creator")?;
+            ("Agent", "my-agent")
+        }
     };
 
-    // check the project path
-    if name_or_path != "." && project_path.exists() {
-        bail!("Directory '{}' already exists", name_or_path);
-    }
+    let name_or_path = name_or_path.unwrap_or(".".to_string());
+    let try_path = PathBuf::from(name_or_path.clone());
 
-    // create dir in case of subfolder
-    if name_or_path != "." {
-        fs::create_dir_all(&project_path)?;
-        info(format!(
-            "Created project directory: {}",
-            project_path.display()
-        ))?;
+    // If the given input is an existing path, we query for the name of the contract that should be created
+    let (pkg_name, parent_dir) = if try_path.exists() {
+        if !try_path.is_dir() {
+            bail!("{} is not a directory", try_path.display());
+        }
+        let pkg_name = input(format!("{type_str} name"))
+            .placeholder(placeholder)
+            .validate(validate_name)
+            .interact()?;
+        (pkg_name, try_path)
     } else {
-        info(format!(
-            "Using current directory: {}",
-            project_path.display()
-        ))?;
-    }
+        // If it is not an existing path, we interpret it as the new package-name
+        (name_or_path, env::current_dir()?)
+    };
 
-    create_project_structure(&project_path)?;
+    let project_path = parent_dir.join(pkg_name.clone());
+
+    // check the project path
+    if project_path.exists() {
+        bail!("Directory '{}' already exists", project_path.display());
+    }
+    // create project path
+    fs::create_dir_all(&project_path)?;
+
+    info(format!(
+        "Created project directory: {}",
+        project_path.display()
+    ))?;
+
+    create_project_structure(&project_path, pkg_name, pkg_type)?;
 
     Ok(())
 }
 
-fn create_project_structure(project_path: &Path) -> Result<()> {
+fn create_project_structure(
+    project_path: &Path,
+    pkg_name: String,
+    pkg_type: PkgType,
+) -> Result<()> {
     // create src dir
     let src = project_path.join("src");
-
     if !src.exists() {
         fs::create_dir_all(&src)?;
     }
@@ -56,116 +95,36 @@ fn create_project_structure(project_path: &Path) -> Result<()> {
     // create Cargo.toml
     let cargo_file = project_path.join("Cargo.toml");
 
-    // collect project information from user
-    //
-    // TODO: Select contract or agent here
-    let contract_name: String = input("Contract name:")
-        .placeholder("new-contract")
-        .validate(|input: &String| {
-            if input.trim().is_empty() {
-                Err("Contract name cannot be empty")
-            } else if !input
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-            {
-                Err("Only letters, numbers, hyphens and underscores allowed")
-            } else if input.len() > 50 {
-                Err("Contract name must be 50 characters or less")
-            } else {
-                Ok(())
-            }
-        })
-        .interact()?;
-
-    // :D Man this is annoying as fuck you should not be prompted for that
-    // -> Maybe this is something we can move to the config section
-    let author: String = input("Author:")
-        .placeholder("John Doe")
-        .validate(|input: &String| {
-            if input.trim().is_empty() {
-                Err("Author cannot be empty")
-            } else if !input
-                .chars()
-                .all(|c| c.is_alphabetic() || c.is_whitespace())
-            {
-                Err("Only letters allowed")
-            } else if input.len() > 50 {
-                Err("Contract name must be 50 characters or less")
-            } else {
-                Ok(())
-            }
-        })
-        .interact()?;
-
-    // Same as with author
-    let email: String = input("Email:")
-        .placeholder("john.doe@example.com")
-        .validate(|input: &String| {
-            let email = input.trim();
-            if email.is_empty() {
-                Err("Email cannot be empty")
-            } else if !email.contains('@') {
-                Err("Email must contain @")
-            } else if !email.contains('.') {
-                Err("Email must contain a domain")
-            } else if email.len() > 254 {
-                Err("Email must be 254 characters or less")
-            } else if email.starts_with('@') || email.ends_with('@') {
-                Err("Invalid email format")
-            } else {
-                Ok(())
-            }
-        })
-        .interact()?;
-
-    let cargo_toml_content = build_cargo_toml(&contract_name, &author, &email)?;
-    std::fs::write(&cargo_file, cargo_toml_content)?;
+    let cargo_toml_content = build_cargo_toml(&pkg_name)?;
+    fs::write(&cargo_file, cargo_toml_content)?;
 
     info("Generate contract manifest")?;
     let manifest_file = project_path.join("Manifest.toml");
 
-    let manifest = build_contract_manifest(&contract_name);
-    std::fs::write(&manifest_file, manifest)?;
+    let manifest = generate_manifest(&pkg_name, &pkg_type, vec![])?;
+    fs::write(&manifest_file, manifest)?;
 
-    info("Generate Cargo settings!")?;
-    let cargo_dir = project_path.join(".cargo");
-    let config_file = cargo_dir.join("config.toml");
-    fs::create_dir_all(&cargo_dir)?;
-    let config_content = "[net]\ngit-fetch-with-cli = true\n";
-    if config_file.exists() {
-        let existing = fs::read_to_string(&config_file)?;
-        if !existing.contains("git-fetch-with-cli = true") {
-            fs::write(&config_file, format!("{}\n{}", existing, config_content))?;
-            info("Added git-fetch-with-cli to existing ~/.cargo/config.toml")?;
-        } else {
-            info("git-fetch-with-cli already configured")?;
-        }
-    } else {
-        fs::write(&config_file, config_content)?;
-        info("Created ~/.cargo/config.toml with git-fetch-with-cli = true")?;
-    }
-
-    info("Generat project files!")?;
-    let lib_rs_content = generate_lib_rs();
-    std::fs::write(&lib_file, lib_rs_content)?;
+    info("Generated project files!")?;
+    let lib_rs_content = generate_lib_rs(&pkg_name, &pkg_type)?;
+    fs::write(&lib_file, lib_rs_content)?;
 
     success("Successfully created smart contract project!")?;
     Ok(())
 }
 
-fn build_cargo_toml(name: &str, author: &str, email: &str) -> Result<String> {
+fn build_cargo_toml(name: &str) -> Result<String> {
     let target = LibTarget::new().crate_type(CrateType::Cdylib).build();
 
     let cargo_toml = CargoToml::builder()
         // Package Section
         .name(name)
-        .author(&format!("{} <{}>", author, email))
+        // .author(&format!("{} <{}>", author, email))
         .version("0.1.0")
         .lib(target)
-        .dependency(Dependency::tag(
-            "borderless",
-            "ssh://git@git.borderless-technologies.com:2222/Borderless/borderless.git",
-            "v0.2.0",
+        .dependency(Dependency::branch(
+            "borderless-sdk",
+            "https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git",
+            "main",
         ))
         .dependency(Dependency::version("serde", "1.0"))
         .build()?;
@@ -176,16 +135,57 @@ fn build_cargo_toml(name: &str, author: &str, email: &str) -> Result<String> {
     toml = toml.replace("[package]", "[package]\nedition = \"2021\"");
 
     // Fix crate-type format
-    let re = regex::Regex::new(r#"crate[_-]type\s*=\s*"([^"]+)""#).unwrap();
+    // let re = regex::Regex::new(r#"crate[_-]type\s*=\s*"([^"]+)""#).unwrap();
 
-    toml = re
-        .replace_all(&toml, |caps: &regex::Captures| {
-            let crate_type = &caps[1];
-            format!(r#"crate-type = ["{}"]"#, crate_type)
-        })
-        .to_string();
+    // toml = re
+    //     .replace_all(&toml, |caps: &regex::Captures| {
+    //         let crate_type = &caps[1];
+    //         format!(r#"crate-type = ["{}"]"#, crate_type)
+    //     })
+    //     .to_string();
 
     // TODO only in verbose mode
-    info(format!("Generate project toml:\n{}", toml))?;
+    // info(format!("Generate project toml:\n{}", toml))?;
     Ok(toml)
 }
+
+// :D Man this is annoying as fuck you should not be prompted for that
+// -> Maybe this is something we can move to the config section
+//let author: String = input("Author:")
+//    .placeholder("John Doe")
+//    .validate(|input: &String| {
+//        if input.trim().is_empty() {
+//            Err("Author cannot be empty")
+//        } else if !input
+//            .chars()
+//            .all(|c| c.is_alphabetic() || c.is_whitespace())
+//        {
+//            Err("Only letters allowed")
+//        } else if input.len() > 50 {
+//            Err("Contract name must be 50 characters or less")
+//        } else {
+//            Ok(())
+//        }
+//    })
+//    .interact()?;
+
+//// Same as with author
+//let email: String = input("Email:")
+//    .placeholder("john.doe@example.com")
+//    .validate(|input: &String| {
+//        let email = input.trim();
+//        if email.is_empty() {
+//            Err("Email cannot be empty")
+//        } else if !email.contains('@') {
+//            Err("Email must contain @")
+//        } else if !email.contains('.') {
+//            Err("Email must contain a domain")
+//        } else if email.len() > 254 {
+//            Err("Email must be 254 characters or less")
+//        } else if email.starts_with('@') || email.ends_with('@') {
+//            Err("Invalid email format")
+//        } else {
+//            Ok(())
+//        }
+//    })
+//    .interact()?;
