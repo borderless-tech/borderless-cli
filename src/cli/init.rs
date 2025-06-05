@@ -8,6 +8,7 @@ use cliclack::{input, intro, log::info, log::success};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+#[allow(clippy::ptr_arg)]
 fn validate_name(input: &String) -> Result<(), &'static str> {
     if input.trim().is_empty() {
         Err("Contract name cannot be empty")
@@ -67,11 +68,12 @@ pub fn handle_init(name_or_path: Option<String>) -> Result<()> {
         bail!("Directory '{}' already exists", project_path.display());
     }
 
-    if !confirm(format!(
-        "Create project directory: {}",
-        project_path.display()
-    ))
-    .interact()?
+    if get_config().confirm_creation
+        && !confirm(format!(
+            "Create project directory: {}",
+            project_path.display()
+        ))
+        .interact()?
     {
         error("Process aborted by user")?;
         std::process::exit(1);
@@ -166,8 +168,10 @@ fn build_cargo_toml(name: &str, author: &str) -> Result<String> {
         Dependency::Detailed(Box::new(borderless)),
     );
 
-    let mut lib = Product::default();
-    lib.crate_type = vec!["cdylib".to_string()];
+    let lib = Product {
+        crate_type: vec!["cdylib".to_string()],
+        ..Default::default()
+    };
 
     let cargo = Manifest {
         package: Some(package),

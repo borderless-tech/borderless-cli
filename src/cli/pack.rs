@@ -84,7 +84,7 @@ fn build_wasm(work_dir: &std::path::Path) -> Result<()> {
     sp.start("Compiling to WebAssembly...");
 
     let child = std::process::Command::new("cargo")
-        .args(&["build", "--release", "--target=wasm32-unknown-unknown"])
+        .args(["build", "--release", "--target=wasm32-unknown-unknown"])
         .current_dir(work_dir)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

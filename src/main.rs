@@ -108,7 +108,11 @@ mod config {
     /// Configuration of the cmdline interface
     #[derive(Debug, Default, Serialize, Deserialize)]
     pub struct Config {
+        /// Author information
         pub author: Option<Author>,
+
+        /// If true, the user has to confirm the creation of new directories
+        pub confirm_creation: bool,
     }
 
     /// Initializes the config
