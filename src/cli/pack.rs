@@ -1,16 +1,44 @@
 use anyhow::{bail, Context, Result};
-use cliclack::{log::info, log::success, spinner};
-use std::path::{Path, PathBuf};
+use borderless_hash::Hash256;
+use borderless_pkg::*;
+use cliclack::{
+    intro,
+    log::{info, success},
+    spinner,
+};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use crate::template::Manifest;
 
 pub fn handle_pack(path: PathBuf) -> Result<()> {
-    let absolute_path = std::fs::canonicalize(&path).context("Failed to resolve absolute path")?;
+    let absolute_path = fs::canonicalize(&path).context("Failed to resolve absolute path")?;
     if !absolute_path.is_dir() {
         bail!("Not a directory: {}", absolute_path.display());
     }
 
-    // TODO: Check if contract or agent
+    // Validate the project directory
+    check_project_structure(&path)?;
 
-    info("Create package")?;
+    // Parse the manifest
+    let manifest = read_manifest(&path).context("failed to read Manifest.toml")?;
+    let (pkg_type, pkg_info) = match (manifest.agent, manifest.contract) {
+        (Some(info), None) => {
+            intro(format!("📦 Create package for agent '{}'", info.name))?;
+            (PkgType::Agent, info)
+        }
+        (None, Some(info)) => {
+            intro(format!("📦 Create package for contract '{}'", info.name))?;
+            (PkgType::Contract, info)
+        }
+        _ => bail!("invalid manifest - either [agent] or [contract] section must be set"),
+    };
+
+    // Also read cargo.toml to get the version
+    let version = get_version_from_cargo(&path)?;
+
     info(format!("Read folder: {}", path.display()))?;
 
     info(format!(
@@ -18,29 +46,78 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
         absolute_path.display()
     ))?;
 
-    // build
-    build_wasm(&absolute_path)?;
-
-    let contract_name = "foo";
+    // Compile the project
+    compile_project(&absolute_path)?;
 
     // read wasm as bytes
-    let _wasm_bytes = read_wasm_file(&absolute_path, contract_name)?;
+    let wasm_bytes = read_wasm_file(&absolute_path, &pkg_info.name)?;
+
+    // Create package
+    let pkg = WasmPkg {
+        name: pkg_info.name.clone(),
+        app_name: pkg_info.app_name,
+        app_module: pkg_info.app_module,
+        capabilities: manifest.capabilities,
+        pkg_type,
+        meta: manifest.meta.unwrap_or_default(),
+        source: Source {
+            version,
+            digest: Hash256::digest(&wasm_bytes),
+            code: SourceType::Wasm {
+                wasm: wasm_bytes,
+                git_info: None,
+            },
+        },
+    };
 
     // pack contract
     // let bundle = pack_wasm_contract(&manifest, &wasm_bytes, key_path)?;
 
     // save_bundle_to_file(&bundle, &env::current_dir()?)?;
-    success("Contract package created!")?;
+    success(format!("Successfully packaged '{}'", pkg_info.name))?;
     Ok(())
 }
 
-fn read_wasm_file(work_dir: &Path, contract_name: &str) -> Result<Vec<u8>> {
+/// Validate the project structure
+fn check_project_structure(path: &Path) -> Result<()> {
+    let cargo = path.join("Cargo.toml");
+    let src = path.join("src");
+    let lib = src.join("lib.rs");
+    let manifest = path.join("Manifest.toml");
+    let must_exist = [cargo, src, lib, manifest];
+    for p in must_exist {
+        if !p.exists() {
+            bail!("missing {} in project directory", p.display());
+        }
+    }
+    Ok(())
+}
+
+/// Read the manifest from the project dir
+fn read_manifest(project_dir: &Path) -> Result<Manifest> {
+    let manifest_path = project_dir.join("Manifest.toml");
+    let content = fs::read_to_string(&manifest_path)?;
+    let manifest: Manifest = toml::from_str(&content)?;
+    Ok(manifest)
+}
+
+fn get_version_from_cargo(path: &Path) -> Result<SemVer> {
+    let manifest_path = path.join("Cargo.toml");
+    let content = fs::read_to_string(&manifest_path)?;
+    let manifest: cargo_toml::Manifest = toml::from_str(&content)?;
+    Ok(manifest
+        .package
+        .context("missing [package] section in Cargo.toml")?
+        .version()
+        .parse()
+        .map_err(anyhow::Error::msg)?)
+}
+
+fn read_wasm_file(work_dir: &Path, pkg_name: &str) -> Result<Vec<u8>> {
     // WASM-File Pfad ermitteln
     let wasm_path = work_dir
-        .join("target")
-        .join("wasm32-unknown-unknown")
-        .join("release")
-        .join(format!("{}.wasm", contract_name));
+        .join("target/wasm32-unknown-unknown/release")
+        .join(format!("{}.wasm", pkg_name));
 
     // Prüfen ob File existiert
     if !wasm_path.exists() {
@@ -49,7 +126,7 @@ fn read_wasm_file(work_dir: &Path, contract_name: &str) -> Result<Vec<u8>> {
     }
 
     // Als Vec<u8> einlesen
-    let wasm_bytes = std::fs::read(&wasm_path)
+    let wasm_bytes = fs::read(&wasm_path)
         .with_context(|| format!("Failed to read WASM file: {}", wasm_path.display()))?;
 
     info(format!(
@@ -63,23 +140,12 @@ fn read_wasm_file(work_dir: &Path, contract_name: &str) -> Result<Vec<u8>> {
 
 // fn save_bundle_to_file(bundle: &Bundle, path: &Path) -> Result<()> {
 //     let json = serde_json::to_string_pretty(bundle)?;
-//     std::fs::write(path.join("package.json"), json)?;
+//     fs::write(path.join("package.json"), json)?;
 //     info(format!("Bundle saved to {}", path.display()))?;
 //     Ok(())
 // }
 
-fn check_manifest(work_dir: &Path) -> Result<()> {
-    let manifest_path = work_dir.join("Manifest.toml");
-
-    if !manifest_path.exists() {
-        bail!("Manifest.toml not found in {}", work_dir.display());
-    }
-
-    info("Found Manifest.toml")?;
-    Ok(())
-}
-
-fn build_wasm(work_dir: &std::path::Path) -> Result<()> {
+fn compile_project(work_dir: &std::path::Path) -> Result<()> {
     let sp = spinner();
     sp.start("Compiling to WebAssembly...");
 
@@ -100,19 +166,6 @@ fn build_wasm(work_dir: &std::path::Path) -> Result<()> {
 
     if output.status.success() {
         sp.stop("WASM build completed successfully!");
-
-        // Optional: WASM files anzeigen
-        let target_dir = work_dir.join("target/wasm32-unknown-unknown/release");
-        if let Ok(entries) = std::fs::read_dir(&target_dir) {
-            for entry in entries.flatten() {
-                if entry.path().extension().and_then(|s| s.to_str()) == Some("wasm") {
-                    info(format!(
-                        "Generated: {}",
-                        entry.path().file_name().unwrap().to_string_lossy()
-                    ))?;
-                }
-            }
-        }
     } else {
         sp.stop("Build failed");
         let stderr = String::from_utf8_lossy(&output.stderr);

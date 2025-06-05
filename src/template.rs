@@ -13,21 +13,14 @@ struct Templates;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Manifest {
-    pub agent: Option<Agent>,
-    pub contract: Option<Contract>,
+    pub agent: Option<PkgInfo>,
+    pub contract: Option<PkgInfo>,
     pub capabilities: Option<Capabilities>,
     pub meta: Option<PkgMeta>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Agent {
-    pub name: String,
-    pub app_name: Option<String>,
-    pub app_module: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Contract {
+pub struct PkgInfo {
     pub name: String,
     pub app_name: Option<String>,
     pub app_module: Option<String>,
