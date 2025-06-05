@@ -33,8 +33,16 @@ fn validate_name(input: &String) -> Result<(), &'static str> {
 pub fn handle_init(name_or_path: Option<String>) -> Result<()> {
     intro("Initialize a new package 📦")?;
     let pkg_type = select("Please select the package type:")
-        .item(PkgType::Contract, "Contract", "initializes a SmartContract")
-        .item(PkgType::Agent, "Agent", "initializes a Software-Agent")
+        .item(
+            PkgType::Contract,
+            "Contract 🔗  ",
+            "initializes a SmartContract",
+        )
+        .item(
+            PkgType::Agent,
+            "Agent    🤖✨",
+            "initializes a Software-Agent",
+        )
         .initial_value(PkgType::Contract)
         .interact()?;
 
