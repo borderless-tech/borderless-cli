@@ -70,7 +70,13 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
                 git_info: None,
             },
         },
-    };
+    }
+    .into_dto();
+    let out = serde_json::to_vec(&pkg)?;
+
+    let pkg_file = path.join("package.json");
+    fs::write(pkg_file, &out)?;
+    info(format!("Saved package.json"))?;
 
     // pack contract
     // let bundle = pack_wasm_contract(&manifest, &wasm_bytes, key_path)?;
