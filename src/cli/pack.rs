@@ -8,7 +8,9 @@ use cliclack::{
 };
 use std::{
     fs,
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
+    process::{Command, Stdio},
 };
 
 use crate::template::Manifest;
@@ -146,31 +148,63 @@ fn read_wasm_file(work_dir: &Path, pkg_name: &str) -> Result<Vec<u8>> {
 // }
 
 fn compile_project(work_dir: &std::path::Path) -> Result<()> {
-    let sp = spinner();
-    sp.start("Compiling to WebAssembly...");
+    // Clean build
+    // let _status = Command::new("cargo")
+    //     .current_dir(work_dir)
+    //     .args(["clean"])
+    //     .stdout(Stdio::null())
+    //     .stderr(Stdio::null())
+    //     .spawn()?
+    //     .wait()?;
 
-    let child = std::process::Command::new("cargo")
+    let sp = spinner();
+
+    info("Compiling package to WebAssembly...")?;
+    sp.start("cargo build --release --target=wasm32-unknown-unknown");
+
+    // 2) Spawn `cargo build ...` with stdout/stderr piped.
+    let mut child = Command::new("cargo")
         .args(["build", "--release", "--target=wasm32-unknown-unknown"])
         .current_dir(work_dir)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
-        .context("Failed to start cargo build")?;
+        .context("Failed to start `cargo build`")?;
 
-    // Während des Builds verschiedene Messages
-    sp.set_message("Resolving dependencies...");
+    // 3) Take ownership of stdout (and stderr if you like). Here we'll read from stdout.
+    let stdout = child
+        .stdout
+        .take()
+        .context("Failed to capture stdout of cargo")?;
+    let stderr = child
+        .stderr
+        .take()
+        .context("Failed to capture stderr of cargo")?;
 
-    let output = child
-        .wait_with_output()
-        .context("Failed to wait for cargo build")?;
+    // Wrap stdout in a line‐buffered reader:
+    let mut _stdout_reader = BufReader::new(stdout).lines();
+    let mut stderr_reader = BufReader::new(stderr).lines();
+    // (Optional) If you want to show stderr lines as well, you can spawn a thread or merge them.
 
-    if output.status.success() {
-        sp.stop("WASM build completed successfully!");
+    // 4) Read lines as they arrive. Each time Cargo prints a new line, update the spinner’s message.
+    while let Some(line_res) = stderr_reader.next() {
+        let line = line_res.context("Failed to read line from cargo stdout")?;
+        // Set the spinner message to the "current" Cargo line:
+        sp.set_message(&line);
+    }
+    // At this point, stdout has closed (Cargo is done printing to stdout).
+
+    // 5) Wait for the child to exit, so we can check exit status.
+    let status = child.wait().context("Failed to wait for cargo to finish")?;
+
+    // 6) Stop the spinner and bail or succeed based on exit status.
+    if status.success() {
+        sp.stop("WASM build completed successfully.");
+        Ok(())
     } else {
         sp.stop("Build failed");
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("WASM build failed:\n{}", stderr);
+        // If you also want stderr details, you can decode `output.stderr`:
+        // let stderr_text = String::from_utf8_lossy(&output.stderr);
+        bail!("WASM build failed",);
     }
-
-    Ok(())
 }
