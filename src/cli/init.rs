@@ -174,15 +174,36 @@ fn build_cargo_toml(name: &str, author: &str) -> Result<String> {
         Dependency::Detailed(Box::new(borderless)),
     );
 
+    // Set crate type to "cdylib" (necessary for wasm)
     let lib = Product {
         crate_type: vec!["cdylib".to_string()],
         ..Default::default()
     };
 
+    // Set release profile to optimize for binary size
+    let mut profile = Profiles::default();
+    profile.release = Some(Profile {
+        opt_level: Some(toml::Value::String("z".to_string())),
+        lto: Some(LtoSetting::Fat),
+        codegen_units: Some(1),
+        debug: None,
+        split_debuginfo: None,
+        rpath: None,
+        debug_assertions: None,
+        panic: None,
+        incremental: None,
+        overflow_checks: None,
+        strip: None,
+        package: Default::default(),
+        build_override: None,
+        inherits: None,
+    });
+
     let cargo = Manifest {
         package: Some(package),
         dependencies,
         lib: Some(lib),
+        profile,
         ..Default::default()
     };
 
