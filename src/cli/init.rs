@@ -195,23 +195,25 @@ fn build_cargo_toml(name: &str, author: &str) -> Result<String> {
     };
 
     // Set release profile to optimize for binary size
-    let mut profile = Profiles::default();
-    profile.release = Some(Profile {
-        opt_level: Some(toml::Value::String("z".to_string())),
-        lto: Some(LtoSetting::Fat),
-        codegen_units: Some(1),
-        debug: None,
-        split_debuginfo: None,
-        rpath: None,
-        debug_assertions: None,
-        panic: None,
-        incremental: None,
-        overflow_checks: None,
-        strip: None,
-        package: Default::default(),
-        build_override: None,
-        inherits: None,
-    });
+    let profile = Profiles {
+        release: Some(Profile {
+            opt_level: Some(toml::Value::String("z".to_string())),
+            lto: Some(LtoSetting::Fat),
+            codegen_units: Some(1),
+            debug: None,
+            split_debuginfo: None,
+            rpath: None,
+            debug_assertions: None,
+            panic: None,
+            incremental: None,
+            overflow_checks: None,
+            strip: None,
+            package: Default::default(),
+            build_override: None,
+            inherits: None,
+        }),
+        ..Default::default()
+    };
 
     let cargo = Manifest {
         package: Some(package),

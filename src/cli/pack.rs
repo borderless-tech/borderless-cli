@@ -62,7 +62,7 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
         Ok(info) => {
             if confirm(format!(
                 "Add git-info '{}' to package.json?",
-                info.to_string()
+                info
             ))
             .interact()?
             {
@@ -135,12 +135,12 @@ fn get_version_from_cargo(path: &Path) -> Result<SemVer> {
     let manifest_path = path.join("Cargo.toml");
     let content = fs::read_to_string(&manifest_path)?;
     let manifest: cargo_toml::Manifest = toml::from_str(&content)?;
-    Ok(manifest
+    manifest
         .package
         .context("missing [package] section in Cargo.toml")?
         .version()
         .parse()
-        .map_err(anyhow::Error::msg)?)
+        .map_err(anyhow::Error::msg)
 }
 
 /// Reads the wasm binary from the target path
@@ -224,10 +224,10 @@ fn compile_project(work_dir: &Path) -> Result<PathBuf> {
 
     // Wrap stdout in a line‐buffered reader:
     let mut _stdout_reader = BufReader::new(stdout).lines();
-    let mut stderr_reader = BufReader::new(stderr).lines();
+    let stderr_reader = BufReader::new(stderr).lines();
 
     // Read lines from stderr as they arrive and update spinner
-    while let Some(line_res) = stderr_reader.next() {
+    for line_res in stderr_reader {
         let line = line_res.unwrap_or_else(|e| format!("failed to read cargo output: {e}"));
         sp.set_message(&line);
     }
