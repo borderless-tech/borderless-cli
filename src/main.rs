@@ -55,6 +55,12 @@ pub enum Commands {
     /// Creates a new package from an existing project
     Pack { project_path: PathBuf },
 
+    /// Merges an introduction with a package.json
+    Merge {
+        introduction: PathBuf,
+        package_json: PathBuf,
+    },
+
     /// Deploys a package to a node
     Deploy,
 
@@ -76,6 +82,10 @@ fn main() -> Result<()> {
     let result = match cli.command {
         Commands::Init { project_name } => cli::handle_init(project_name),
         Commands::Pack { project_path } => cli::handle_pack(project_path),
+        Commands::Merge {
+            introduction,
+            package_json,
+        } => cli::handle_merge(introduction, package_json),
         Commands::Deploy => todo!(),
         Commands::Link => todo!(),
         Commands::Publish => todo!(),
