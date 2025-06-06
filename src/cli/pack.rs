@@ -60,12 +60,7 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
     // try to get git-info
     let git_info = match get_git_info(&absolute_path) {
         Ok(info) => {
-            if confirm(format!(
-                "Add git-info '{}' to package.json?",
-                info
-            ))
-            .interact()?
-            {
+            if confirm(format!("Add git-info '{}' to package.json?", info)).interact()? {
                 Some(info)
             } else {
                 None
@@ -314,9 +309,23 @@ pub fn get_git_info(path: &Path) -> Result<GitInfo> {
     // This yields something like:
     // - "v1.2.0-4-g5a85959"
     // - or, if no tag, something like "5a85959" (an abbreviated OID)
-    let base_str = describe.format(Some(&fmt_opts))?;
+    let raw_describe = describe.format(Some(&fmt_opts))?;
 
-    // 4. If the repo was dirty, append "-dirty"
+    // 4. Massage the “-g” prefix out of the describe string,
+    //    so that it becomes "tag-<count>-<hash>" or just "<hash>".
+    //
+    //    If `raw_describe` contains exactly one "-g" sequence, replace the first
+    //    "-g" with "-". Otherwise (e.g. if it’s just a SHA), leave it as is.
+    let base_str = if let Some(pos) = raw_describe.find("-g") {
+        // Replace only the first occurrence of "-g" → "-"
+        let (head, tail) = raw_describe.split_at(pos);
+        // tail starts with "-g"; drop the 'g' but keep the '-' so it becomes "head-<hash>"
+        format!("{}-{}", head, &tail[2..])
+    } else {
+        raw_describe.clone()
+    };
+
+    // 5. If the repo was dirty, append "-dirty"
     let describe_str = if is_dirty {
         format!("{base_str}-dirty")
     } else {
@@ -328,8 +337,7 @@ pub fn get_git_info(path: &Path) -> Result<GitInfo> {
     //    any parsing errors from `GitInfo::from_str` (which yields a `String`).
     let info = describe_str
         .parse::<GitInfo>()
-        .map_err(anyhow::Error::msg)
-        .context("failed to parse `GitInfo`")?;
+        .map_err(anyhow::Error::msg)?;
 
     Ok(info)
 }
