@@ -2,11 +2,13 @@ use anyhow::{bail, Context, Result};
 use borderless_hash::Hash256;
 use borderless_pkg::*;
 use cliclack::{
-    intro,
-    log::{info, success},
+    confirm, intro,
+    log::{error, info, success},
     spinner,
 };
 use convert_case::{Case, Casing};
+use git2::{DescribeFormatOptions, DescribeOptions, Repository, StatusOptions};
+use git_info::GitInfo;
 use serde_json::Value;
 use std::{
     fs,
@@ -55,6 +57,26 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
     // read wasm as bytes
     let wasm_bytes = read_wasm_file(&target_path, &pkg_info.name)?;
 
+    // try to get git-info
+    let git_info = match get_git_info(&absolute_path) {
+        Ok(info) => {
+            if confirm(format!(
+                "Add git-info '{}' to package.json?",
+                info.to_string()
+            ))
+            .interact()?
+            {
+                Some(info)
+            } else {
+                None
+            }
+        }
+        Err(e) => {
+            error(e)?;
+            None
+        }
+    };
+
     // Create package
     let pkg = WasmPkg {
         name: pkg_info.name.clone(),
@@ -68,7 +90,7 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
             digest: Hash256::digest(&wasm_bytes),
             code: SourceType::Wasm {
                 wasm: wasm_bytes,
-                git_info: None,
+                git_info,
             },
         },
     }
@@ -240,4 +262,74 @@ fn compile_project(work_dir: &Path) -> Result<PathBuf> {
     sp.stop("WASM build completed successfully.");
 
     Ok(target_path)
+}
+
+/// Opens the repository at `path` (usually `"."`) and returns a `GitInfo` with:
+/// - `tag`: the nearest annotated tag (if any),
+/// - `commits_past_tag`: the number of commits beyond that tag (if any),
+/// - `commit_hash_short`: the short (7-char) hex of HEAD,
+/// - `dirty`: whether the working tree is dirty.
+///
+/// Internally, this uses `git2::Repository::describe` + `DescribeOptions` to get a “describe” string,
+/// massaged into our format for `GitInfo::from_str`, then does a separate `git2::StatusOptions` check
+/// for “dirty.”
+pub fn get_git_info(path: &Path) -> Result<GitInfo> {
+    // 1. Open the repo (walks up if `path` is inside a subdirectory).
+    let repo = Repository::discover(path)?;
+
+    // 2. Determine whether the working tree is dirty:
+    let mut status_opts = StatusOptions::new();
+    status_opts
+        .include_untracked(true)
+        .recurse_untracked_dirs(true);
+    let statuses = repo.statuses(Some(&mut status_opts))?;
+    let is_dirty = statuses.iter().any(|entry| {
+        let s = entry.status();
+        // Any status flag means “dirty”
+        s.is_index_new()
+            || s.is_index_modified()
+            || s.is_index_deleted()
+            || s.is_wt_new()
+            || s.is_wt_modified()
+            || s.is_wt_deleted()
+            || s.is_conflicted()
+            || s.is_ignored()
+            || s.is_wt_renamed()
+            || s.is_wt_typechange()
+            || s.is_index_renamed()
+            || s.is_index_typechange()
+    });
+
+    // 3. Use `describe` to get a “tag-<count>-g<hash>” or fallback to the OID.
+    let mut desc_opts = DescribeOptions::new();
+    desc_opts
+        .describe_tags() // use annotated tags
+        .show_commit_oid_as_fallback(true) // if no tag, fall back to commit OID
+        .max_candidates_tags(10); // no limit on tag‐candidate distance
+
+    let describe = repo.describe(&desc_opts)?;
+    let mut fmt_opts = DescribeFormatOptions::new();
+    fmt_opts.dirty_suffix(""); // we’ll append “-dirty” ourselves, so disable any suffix here
+
+    // This yields something like:
+    // - "v1.2.0-4-g5a85959"
+    // - or, if no tag, something like "5a85959" (an abbreviated OID)
+    let base_str = describe.format(Some(&fmt_opts))?;
+
+    // 4. If the repo was dirty, append "-dirty"
+    let describe_str = if is_dirty {
+        format!("{base_str}-dirty")
+    } else {
+        base_str
+    };
+
+    // 5. Parse that final string via `GitInfo::from_str`.
+    //    We return a boxed `dyn Error` so we can propagate both `git2::Error` and
+    //    any parsing errors from `GitInfo::from_str` (which yields a `String`).
+    let info = describe_str
+        .parse::<GitInfo>()
+        .map_err(anyhow::Error::msg)
+        .context("failed to parse `GitInfo`")?;
+
+    Ok(info)
 }
