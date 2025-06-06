@@ -67,12 +67,19 @@ pub fn handle_init(name_or_path: Option<String>) -> Result<()> {
         // If it is not an existing path, it could be a path we should create.
         //
         // The last segment of the path is in that case the package name (if it is only one segment, that is the package name).
-        let name = PathBuf::from(&name_or_path)
-            .file_name()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or(name_or_path);
-        (name, env::current_dir()?)
+        let as_path = PathBuf::from(&name_or_path);
+        match as_path.file_name() {
+            Some(name) => {
+                let name = name.to_string_lossy().to_string();
+                let current_dir = env::current_dir()?;
+                let parent = as_path
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or(current_dir);
+                (name, parent)
+            }
+            None => (name_or_path, env::current_dir()?),
+        }
     };
 
     let project_path = parent_dir.join(pkg_name.clone());
