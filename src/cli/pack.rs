@@ -6,6 +6,7 @@ use cliclack::{
     log::{info, success},
     spinner,
 };
+use convert_case::{Case, Casing};
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -119,10 +120,12 @@ fn get_version_from_cargo(path: &Path) -> Result<SemVer> {
 }
 
 fn read_wasm_file(work_dir: &Path, pkg_name: &str) -> Result<Vec<u8>> {
+    let wasm_pkg_name = format!("{}.wasm", pkg_name.to_case(Case::Snake));
+
     // WASM-File Pfad ermitteln
     let wasm_path = work_dir
         .join("target/wasm32-unknown-unknown/release")
-        .join(format!("{}.wasm", pkg_name));
+        .join(wasm_pkg_name);
 
     // Prüfen ob File existiert
     if !wasm_path.exists() {
