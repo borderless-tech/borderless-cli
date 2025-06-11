@@ -73,6 +73,15 @@ pub enum Commands {
 
     /// Publishes a package to some registry
     Publish,
+
+    /// Create a new template
+    #[command(subcommand)]
+    Template(TemplateCmd),
+}
+
+#[derive(Subcommand)]
+pub enum TemplateCmd {
+    Introduction,
 }
 
 fn main() -> Result<()> {
@@ -104,6 +113,7 @@ fn main() -> Result<()> {
         Commands::Deploy { path } => cli::handle_deploy(path),
         Commands::Link => cli::handle_link(),
         Commands::Publish => todo!(),
+        Commands::Template(template) => cli::handle_template(template),
     };
 
     if let Err(e) = result {

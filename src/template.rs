@@ -3,8 +3,6 @@ use borderless_pkg::{Capabilities, PkgMeta, PkgType};
 use convert_case::{Case, Casing};
 use rust_embed::Embed;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use toml;
 
 /// All of our templates
 #[derive(Embed)]
@@ -67,17 +65,6 @@ pub fn generate_lib_rs(pkg_name: &str, pkg_type: &PkgType) -> Result<String> {
         .replace("__module_name__", &module_name)
         .replace("__StateName__", &state_name);
     Ok(lib)
-}
-
-pub fn read_manifest(work_dir: &Path) -> Result<Manifest> {
-    let manifest_path = work_dir.join("Manifest.toml");
-
-    let content =
-        std::fs::read_to_string(&manifest_path).context("Failed to read Manifest.toml")?;
-
-    let manifest: Manifest = toml::from_str(&content).context("Failed to parse Manifest.toml")?;
-
-    Ok(manifest)
 }
 
 #[cfg(test)]
