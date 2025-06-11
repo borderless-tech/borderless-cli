@@ -1,8 +1,8 @@
 // use crate::packager::pack_wasm_contract;
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use cliclack::log::error;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 // pub mod packager;
 pub mod template;
@@ -77,6 +77,19 @@ fn main() -> Result<()> {
     // Register config object
     config::init_config()?;
 
+    // Check that data directory exists
+    let data_dir = config::get_config()
+        .data_dir()
+        .context("failed to get data directory - consider setting it manually in your config")?;
+
+    if !data_dir.exists() {
+        fs::create_dir_all(&data_dir)?;
+    }
+
+    if !data_dir.is_dir() {
+        bail!("data-directory {} is not a directory!", data_dir.display());
+    }
+
     // Parse arguments
     let cli = Cli::parse();
     let result = match cli.command {
@@ -87,7 +100,7 @@ fn main() -> Result<()> {
             package_json,
         } => cli::handle_merge(introduction, package_json),
         Commands::Deploy => todo!(),
-        Commands::Link => todo!(),
+        Commands::Link => cli::handle_link(),
         Commands::Publish => todo!(),
     };
 
@@ -124,6 +137,23 @@ mod config {
 
         /// If true, the user has to confirm the creation of new directories
         pub confirm_creation: bool,
+
+        /// Base data directory.
+        ///
+        /// Defaults to `XDG_DATA_HOME`
+        data_directory: Option<PathBuf>,
+    }
+
+    impl Config {
+        pub fn data_dir(&self) -> Result<PathBuf> {
+            match &self.data_directory {
+                Some(dir) => Ok(dir.clone()),
+                None => {
+                    let base_dir: PathBuf = env::var("XDG_DATA_HOME")?.into();
+                    Ok(base_dir.join("borderless-cli"))
+                }
+            }
+        }
     }
 
     /// Initializes the config
