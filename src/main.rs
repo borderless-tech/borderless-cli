@@ -5,9 +5,11 @@ use cliclack::log::error;
 use std::{fs, path::PathBuf};
 
 // pub mod packager;
-pub mod template;
+mod template;
 
 mod cli;
+
+mod api;
 
 #[derive(Parser)]
 #[command(name = "borderless")]
@@ -62,7 +64,7 @@ pub enum Commands {
     },
 
     /// Deploys a package to a node
-    Deploy,
+    Deploy { path: PathBuf },
 
     /// Links the cli to a node or registry
     ///
@@ -99,7 +101,7 @@ fn main() -> Result<()> {
             introduction,
             package_json,
         } => cli::handle_merge(introduction, package_json),
-        Commands::Deploy => todo!(),
+        Commands::Deploy { path } => cli::handle_deploy(path),
         Commands::Link => cli::handle_link(),
         Commands::Publish => todo!(),
     };

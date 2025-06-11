@@ -1,42 +1,13 @@
-use std::{
-    fs,
-    io::{BufRead, Write},
-    path::PathBuf,
-};
-
-use anyhow::{bail, Context, Result};
-use cliclack::{
-    confirm, input, intro,
-    log::{info, warning},
-    outro, select,
-};
-use serde::{Deserialize, Serialize};
+use anyhow::Result;
+use cliclack::{confirm, input, intro, log::info, outro, select};
 use url::Url;
 
-use crate::config;
+use crate::api::{Link, LinkDb};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Item {
     Existing(Link),
     Create,
-}
-
-// NOTE: We have to greatly expand this,
-// because a link should also consist of information about the certificate,
-// peer-id, organization behind the node etc.
-//
-// But for no we make this easy. A linked node has a name, an API-address and API-Key.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Link {
-    name: String,
-    api: Url,
-    api_key: Option<String>,
-}
-
-impl Link {
-    pub fn to_string(&self) -> String {
-        format!("{} - {}", self.name, self.api)
-    }
 }
 
 pub fn handle_link() -> Result<()> {
@@ -98,13 +69,19 @@ fn create_new(mut db: LinkDb) -> Result<()> {
         .interact()?;
 
     let api: Url = input("Enter the API base-url:")
-        .placeholder("localhost:3000")
-        .validate(|input: &String| {
-            if let Err(e) = input.parse::<Url>() {
-                Err(e.to_string())
-            } else {
-                Ok(())
+        .placeholder("http://localhost:3000")
+        .validate(|input: &String| match input.parse::<Url>() {
+            Ok(url) => {
+                if url.cannot_be_a_base() {
+                    Err(
+                        "url cannot be a base-url - required form: http[s]://<AUTHORIY>[:PORT]"
+                            .to_string(),
+                    )
+                } else {
+                    Ok(())
+                }
             }
+            Err(e) => Err(e.to_string()),
         })
         .interact()?;
 
@@ -210,86 +187,4 @@ fn modify_existing(mut db: LinkDb, link: Link) -> Result<()> {
 
     outro(format!("Modified link '{}'", link.name))?;
     Ok(())
-}
-
-// NOTE: This is a very naive and easy implementation,
-// which should be very sufficient for a relatively long time.
-// (we don't require a fully fledged database here)
-#[derive(Debug, Clone)]
-pub struct LinkDb {
-    db: PathBuf,
-    // Buffered links
-    links: Vec<Link>,
-}
-
-impl LinkDb {
-    /// Opens the `LinkDb` and parses all its content
-    pub fn open() -> Result<Self> {
-        let data_home = config::get_config().data_dir()?;
-        let db = data_home.join("LINKS");
-        if !db.exists() {
-            fs::File::create(&db)?;
-        } else if !db.is_file() {
-            bail!("link-file '{}' must be a file", db.display());
-        }
-        // Read file line by line
-        let content = fs::read(&db)?;
-        let mut links = Vec::new();
-        for line in content.lines() {
-            let link = serde_json::from_str(&line?).context(format!(
-                "corrupted data - consider removing '{}'",
-                db.display()
-            ))?;
-            links.push(link);
-        }
-
-        Ok(Self { db, links })
-    }
-
-    /// Returns the links
-    pub fn get_links(&self) -> Vec<Link> {
-        self.links.clone()
-    }
-
-    /// Returns true if a link with the given name already exists
-    pub fn contains(&self, name: &str) -> bool {
-        self.links.iter().find(|l| l.name == name).is_some()
-    }
-
-    /// Modifies an existing link by its name
-    pub fn modify_link(&mut self, name: &str, new_link: Link) -> Result<()> {
-        self.remove_link(name)?;
-        self.add_link(new_link);
-        Ok(())
-    }
-
-    /// Removes a link by its name
-    pub fn remove_link(&mut self, name: &str) -> Result<()> {
-        let idx = match self.links.iter().enumerate().find(|(_, p)| p.name == name) {
-            Some((idx, _)) => idx,
-            None => {
-                warning(format!("Found no link with name: {name}"))?;
-                return Ok(());
-            }
-        };
-        self.links.remove(idx);
-        Ok(())
-    }
-
-    /// Adds a new link
-    pub fn add_link(&mut self, new_link: Link) {
-        self.links.push(new_link);
-    }
-
-    /// Commits the links to disk
-    pub fn commit(self) -> Result<()> {
-        let mut file = fs::File::create(self.db)?;
-        for link in self.links {
-            let encoded = serde_json::to_string(&link)?;
-            file.write(encoded.as_bytes())?;
-            file.write("\n".as_bytes())?;
-        }
-        file.flush()?;
-        Ok(())
-    }
 }
