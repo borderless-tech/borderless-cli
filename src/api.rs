@@ -5,7 +5,10 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use borderless::{common::Introduction, BorderlessId};
+use borderless::{
+    common::{Introduction, IntroductionDto},
+    BorderlessId,
+};
 use cliclack::{
     log::{info, warning},
     select,
@@ -145,11 +148,11 @@ impl Node {
     }
 
     /// Writes an introduction
-    pub fn write_introduction(&self, introduction: Introduction) -> Result<bool> {
+    pub fn write_introduction(&self, introduction: IntroductionDto) -> Result<bool> {
         let endpoint = "/v0/write/introduction";
         let url = self.link.api.join(&endpoint)?;
 
-        let body = introduction.to_bytes()?;
+        let body = serde_json::to_vec(&introduction)?;
 
         let client = reqwest::blocking::Client::new();
         let res = client

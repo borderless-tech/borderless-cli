@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
-use borderless::common::Introduction;
+use borderless::common::{Introduction, IntroductionDto};
 use cliclack::{intro, outro};
 
 use crate::api::Node;
@@ -12,15 +12,14 @@ pub fn handle_deploy(path: PathBuf) -> Result<()> {
     let node = Node::select()?;
 
     // Read introduction
-    if path.exists() {
+    if !path.exists() {
         bail!("{} does not exist", path.display());
     }
-    if path.is_file() {
+    if !path.is_file() {
         bail!("{} is not a file", path.display());
     }
     let content = fs::read(path)?;
-    let introduction =
-        Introduction::from_bytes(&content).context("failed to parse given introduction file")?;
+    let introduction: IntroductionDto = serde_json::from_slice(&content)?;
 
     if node.write_introduction(introduction)? {
         outro("Wrote introduction")?;

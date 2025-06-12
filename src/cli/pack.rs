@@ -3,7 +3,7 @@ use borderless_hash::Hash256;
 use borderless_pkg::*;
 use cliclack::{
     confirm, intro,
-    log::{error, info, success},
+    log::{error, info, success, warning},
     spinner,
 };
 use convert_case::{Case, Casing};
@@ -67,7 +67,7 @@ pub fn handle_pack(path: PathBuf) -> Result<()> {
             }
         }
         Err(e) => {
-            error(e)?;
+            warning(format!("Failed to obtain git-info: {e}"))?;
             None
         }
     };
