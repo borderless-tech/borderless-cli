@@ -3,9 +3,11 @@ name = "borderless-cli"
 version = "0.1.0"
 edition = "2021"
 description = "Commandline Utility to create and deploy borderless packages"
-authors = [ "Borderless Technologies GmbH <hello@borderless-technologies.com>" ]
 keywords = [ "borderless", "commandline", "cli" ]
 categories = [ "command-line-utilities" ]
+authors = [ "Christian Hammermeister <c.hammermeister@borderless-technologies.com>" ]
+repository = "https://github.com/borderless-tech/borderless"
+homepage = "https://borderless-technologies.com/"
 license-file = "LICENSE"
 
 [[bin]]
