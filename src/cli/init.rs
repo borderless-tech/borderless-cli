@@ -178,14 +178,9 @@ fn build_cargo_toml(name: &str, author: &str) -> Result<String> {
     // Specify dependencies
     let mut dependencies = DepsSet::new();
     dependencies.insert("serde".to_string(), Dependency::Simple("1.0".to_string()));
-    let borderless = DependencyDetail {
-        git: Some("https://cargo-deploy-token:def035340885577ed9e9afeec98d8156678a7a74@git.borderless-technologies.com/Borderless/borderless.git".to_string()),
-        branch: Some("main".to_string()),
-        ..Default::default()
-    };
     dependencies.insert(
         "borderless".to_string(),
-        Dependency::Detailed(Box::new(borderless)),
+        Dependency::Simple("0.1.2".to_string()),
     );
 
     // Set crate type to "cdylib" (necessary for wasm)

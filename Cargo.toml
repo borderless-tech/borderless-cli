@@ -1,6 +1,6 @@
 [package]
 name = "borderless-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Commandline Utility to create and deploy borderless packages"
 keywords = [ "borderless", "commandline", "cli" ]
