@@ -124,7 +124,7 @@ fn main() -> Result<()> {
 }
 
 mod config {
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use borderless_pkg::Author;
     use once_cell::sync::OnceCell;
     use serde::{Deserialize, Serialize};
@@ -168,6 +168,30 @@ mod config {
         }
     }
 
+    fn get_config_file_dir() -> Option<PathBuf> {
+        // use XGD_CONFIG_HOME if possible, otherwise $HOME/.config
+        let base_dir = if let Ok(xdg_config_home) = env::var("XDG_CONFIG_HOME") {
+            PathBuf::from(xdg_config_home)
+        } else {
+            let home = env::var("HOME").ok()?;
+            PathBuf::from(home).join(".config")
+        };
+
+        if !base_dir.exists() {
+            return None;
+        }
+
+        Some(base_dir)
+    }
+
+    fn get_config_file_path() -> Option<PathBuf> {
+        let config_file_path = get_config_file_dir()?
+            .join(CONFIG_DIR_NAME)
+            .join(CONFIG_FILE_NAME);
+
+        Some(config_file_path)
+    }
+
     /// Initializes the config
     ///
     /// This registers the static, global variable `CONFIG`, which can be easily accessed via [`get_config()`]
@@ -176,11 +200,29 @@ mod config {
             Some(file) => {
                 // Read config from disk
                 let content = read_to_string(file)?;
-                // NOTE: We could also just use the default config, if something fails
                 toml::from_str(&content)?
             }
-            None => Config::default(),
+            None => {
+                let default_config = Config::default();
+                let config_file_path = get_config_file_path()
+                    .context("failed to get config directory - consider to set XDG_CONFIG_HOME.")?;
+
+                if let Some(parent) = config_file_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+
+                let config_content = toml::to_string_pretty(&default_config)?;
+                std::fs::write(&config_file_path, config_content)?;
+
+                println!("Initial setup complete! We've created a configuration file at:");
+                println!("  {}", config_file_path.display());
+                println!("You can customize the settings by editing this file.");
+                println!("");
+
+                default_config
+            }
         };
+
         CONFIG.set(config).expect("config is unset");
         Ok(())
     }
@@ -191,16 +233,30 @@ mod config {
     }
 
     fn config_file() -> Option<PathBuf> {
-        // TODO: Search XDG_CONFIG_DIRS in case is is not found at XDG_CONFIG_HOME
-        let base_dir: PathBuf = env::var("XDG_CONFIG_HOME").ok()?.into();
-        let config_dir = base_dir.join(CONFIG_DIR_NAME);
-        if !config_dir.exists() {
-            return None;
+        let config_file = get_config_file_path()?;
+
+        // check if config file exists
+        if config_file.exists() {
+            return Some(config_file);
         }
-        let config_file = config_dir.join(CONFIG_FILE_NAME);
-        if !config_file.exists() {
-            return None;
+
+        // check XDG_CONFIG_DIRS for system wide configs
+        let config_dirs = env::var("XDG_CONFIG_DIRS").unwrap_or_else(|_| "/etc/xdg".to_string());
+
+        for dir in config_dirs.split(":") {
+            if dir.trim().is_empty() {
+                continue;
+            }
+
+            let config_file = PathBuf::from(dir)
+                .join(CONFIG_DIR_NAME)
+                .join(CONFIG_FILE_NAME);
+
+            if config_file.exists() {
+                return Some(config_file);
+            }
         }
-        Some(config_file)
+
+        None
     }
 }
