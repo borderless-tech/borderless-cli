@@ -1,9 +1,8 @@
 use std::fs;
 
 use anyhow::Result;
-use borderless::common::{Description, Introduction, IntroductionDto};
-use borderless_pkg::WasmPkg;
-use cliclack::{confirm, input, intro, log::info, multiselect, outro};
+use borderless::common::Description;
+use cliclack::{confirm, intro, log::info, multiselect, outro};
 use serde_json::{json, Value};
 
 use crate::{api::Node, TemplateCmd};

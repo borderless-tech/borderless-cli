@@ -5,10 +5,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use borderless::{
-    common::{Introduction, IntroductionDto},
-    BorderlessId,
-};
+use borderless::{common::IntroductionDto, BorderlessId};
 use cliclack::{
     log::{info, warning},
     select,
@@ -125,6 +122,7 @@ pub struct Node {
 }
 
 impl Node {
+    #[allow(dead_code)]
     pub fn new(link: Link) -> Self {
         Node { link }
     }

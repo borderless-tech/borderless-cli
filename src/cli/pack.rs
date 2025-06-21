@@ -3,7 +3,7 @@ use borderless_hash::Hash256;
 use borderless_pkg::*;
 use cliclack::{
     confirm, intro,
-    log::{error, info, success, warning},
+    log::{info, success, warning},
     spinner,
 };
 use convert_case::{Case, Casing};

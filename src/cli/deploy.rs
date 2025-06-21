@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
-use anyhow::{bail, Context, Result};
-use borderless::common::{Introduction, IntroductionDto};
+use anyhow::{bail, Result};
+use borderless::common::IntroductionDto;
 use cliclack::{intro, outro};
 
 use crate::api::Node;
