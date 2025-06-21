@@ -52,7 +52,7 @@ jobs:
         nix develop --command cargo test --verbose
         nix develop --command cargo build --verbose --release
 
-    nix-build:
+    nix_build:
       name: Nix Build
       runs-on: ubuntu-latest
       if: github.event_name == 'push' || github.event_name == 'pull_request'
@@ -75,3 +75,4 @@ jobs:
         if: hashFiles('flake.nix') != ''
         run: |
           nix build .#borderless-cli
+
