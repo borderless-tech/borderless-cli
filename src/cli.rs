@@ -3,7 +3,6 @@ mod init;
 mod link;
 mod merge;
 mod pack;
-mod publish;
 mod template;
 
 // Re-export functions from sub-modules here
