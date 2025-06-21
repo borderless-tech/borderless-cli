@@ -31,9 +31,10 @@
             cargo-audit
             cargo-tarpaulin
             cargo-flamegraph
-
-	    # Gitlab CLI
+	    
+	    # Tools
 	    gh
+	    yamllint
           ] ++ lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
