@@ -48,10 +48,10 @@ jobs:
       - name: Build and test
         if: steps.nix-files.outputs.type == 'flake'
         run: |
-          nix develop --no-update-lock-file --command cargo fmt --all -- --check
-          nix develop --no-update-lock-file --command cargo clippy --all-targets --all-features
-          nix develop --no-update-lock-file --command cargo test --verbose
-          nix develop --no-update-lock-file --command cargo build --verbose --release
+          nix-shell --run "cargo fmt --all -- --check"
+          nix-shell --run "cargo clippy --all-targets --all-features -- -D warnings"
+          nix-shell --run "cargo test --verbose"
+          nix-shell --run "cargo build --verbose --release"
 
   nix_build:
     name: Nix Build
