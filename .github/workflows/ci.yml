@@ -48,10 +48,10 @@ jobs:
       - name: Build and test
         if: steps.nix-files.outputs.type == 'flake'
         run: |
-          nix develop --command cargo fmt --all -- --check
-          nix develop --command cargo clippy --all-targets --all-features
-          nix develop --command cargo test --verbose
-          nix develop --command cargo build --verbose --release
+          nix develop --no-update-lock-file --command cargo fmt --all -- --check
+          nix develop --no-update-lock-file --command cargo clippy --all-targets --all-features
+          nix develop --no-update-lock-file --command cargo test --verbose
+          nix develop --no-update-lock-file --command cargo build --verbose --release
 
   nix_build:
     name: Nix Build
@@ -75,4 +75,4 @@ jobs:
       - name: Build with Nix (Flake)
         if: hashFiles('flake.nix') != ''
         run: |
-          nix build .#borderless-cli
+          nix build --no-update-lock-file .#borderless-cli
