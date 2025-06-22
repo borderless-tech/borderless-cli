@@ -12,4 +12,5 @@ pub use init::handle_init;
 pub use link::handle_link;
 pub use merge::handle_merge;
 pub use pack::handle_pack;
+pub use publish::handle_publish;
 pub use template::handle_template;
