@@ -50,5 +50,5 @@ jobs:
         run: |
           nix-shell --run "cargo fmt --all -- --check"
           nix-shell --run "cargo clippy --all-targets --all-features -- -D warnings"
+          nix-shell --run "cargo check --verbose"
           nix-shell --run "cargo test --verbose"
-          nix-shell --run "cargo build --verbose --release"
