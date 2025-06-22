@@ -1,5 +1,7 @@
 # Borderless Cmdline Tool
 
+[![CI](https://github.com/borderless-tech/borderless-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/borderless-tech/borderless-cli/actions/workflows/ci.yml)
+
 Small commandline tool to create and deploy new borderless projects.
 
 Try `borderless --help`:
