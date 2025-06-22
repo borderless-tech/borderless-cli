@@ -141,7 +141,7 @@ mod config {
     pub static CONFIG: OnceCell<Config> = OnceCell::new();
 
     /// Configuration of the cmdline interface
-    #[derive(Debug, Default, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "kebab-case")]
     pub struct Config {
         /// Author information
@@ -150,10 +150,24 @@ mod config {
         /// If true, the user has to confirm the creation of new directories
         pub confirm_creation: bool,
 
+        /// The Url or SocketAddr to the smart contract registry
+        pub registry: String,
+
         /// Base data directory.
         ///
         /// Defaults to `XDG_DATA_HOME`
         data_directory: Option<PathBuf>,
+    }
+
+    impl Default for Config {
+        fn default() -> Self {
+            Self {
+                author: None,
+                confirm_creation: false,
+                registry: "https://registry.borderless-technologies.com".to_string(),
+                data_directory: None,
+            }
+        }
     }
 
     impl Config {
