@@ -5,11 +5,9 @@ use cliclack::log::error;
 use std::{fs, path::PathBuf};
 
 // pub mod packager;
-mod template;
-
-mod cli;
-
 mod api;
+mod cli;
+mod template;
 
 #[derive(Parser)]
 #[command(name = "borderless")]
@@ -72,7 +70,7 @@ pub enum Commands {
     Link,
 
     /// Publishes a package to some registry
-    Publish,
+    Publish { specific_registry: Option<String> },
 
     /// Create a new template
     #[command(subcommand)]
@@ -112,7 +110,7 @@ fn main() -> Result<()> {
         } => cli::handle_merge(introduction, package_json),
         Commands::Deploy { path } => cli::handle_deploy(path),
         Commands::Link => cli::handle_link(),
-        Commands::Publish => todo!(),
+        Commands::Publish { specific_registry } => cli::handle_publish(specific_registry),
         Commands::Template(template) => cli::handle_template(template),
     };
 
@@ -141,7 +139,7 @@ mod config {
     pub static CONFIG: OnceCell<Config> = OnceCell::new();
 
     /// Configuration of the cmdline interface
-    #[derive(Debug, Default, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "kebab-case")]
     pub struct Config {
         /// Author information
@@ -150,10 +148,24 @@ mod config {
         /// If true, the user has to confirm the creation of new directories
         pub confirm_creation: bool,
 
+        /// The Url or SocketAddr to the smart contract registry
+        pub registry: String,
+
         /// Base data directory.
         ///
         /// Defaults to `XDG_DATA_HOME`
         data_directory: Option<PathBuf>,
+    }
+
+    impl Default for Config {
+        fn default() -> Self {
+            Self {
+                author: None,
+                confirm_creation: false,
+                registry: "https://registry.borderless-technologies.com".to_string(),
+                data_directory: None,
+            }
+        }
     }
 
     impl Config {
