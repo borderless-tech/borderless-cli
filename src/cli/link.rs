@@ -105,7 +105,7 @@ fn create_new(mut db: LinkDb) -> Result<()> {
     };
 
     let new_link = Link { name, api, api_key };
-    info(&new_link.to_string())?;
+    info(new_link.to_string())?;
 
     // Save to db
     db.add_link(new_link);
@@ -116,7 +116,7 @@ fn create_new(mut db: LinkDb) -> Result<()> {
 }
 
 fn modify_existing(mut db: LinkDb, link: Link) -> Result<()> {
-    info(format!("Changing existing link {}", link.to_string()))?;
+    info(format!("Changing existing link {}", link))?;
     let delete = select("What do you want to do?")
         .item(true, "Delete link", "deletes the node from our database")
         .item(
@@ -127,12 +127,7 @@ fn modify_existing(mut db: LinkDb, link: Link) -> Result<()> {
         .interact()?;
 
     if delete {
-        if confirm(format!(
-            "Delete {} ? This cannot be undone!",
-            link.to_string()
-        ))
-        .interact()?
-        {
+        if confirm(format!("Delete {} ? This cannot be undone!", link)).interact()? {
             db.remove_link(&link.name)?;
             db.commit()?;
             outro(format!("Removed link '{}'", link.name))?;
@@ -143,7 +138,7 @@ fn modify_existing(mut db: LinkDb, link: Link) -> Result<()> {
     }
 
     let api: Url = input("Enter the API base-url (leave empty to keep the current value):")
-        .placeholder(&link.api.to_string())
+        .placeholder(link.api.as_ref())
         .validate(|input: &String| {
             if let Err(e) = input.parse::<Url>() {
                 Err(e.to_string())
@@ -151,7 +146,7 @@ fn modify_existing(mut db: LinkDb, link: Link) -> Result<()> {
                 Ok(())
             }
         })
-        .default_input(&link.api.to_string())
+        .default_input(link.api.as_ref())
         .required(false)
         .interact()?;
 

@@ -217,7 +217,6 @@ mod config {
                 println!("Initial setup complete! We've created a configuration file at:");
                 println!("  {}", config_file_path.display());
                 println!("You can customize the settings by editing this file.");
-                println!("");
 
                 default_config
             }

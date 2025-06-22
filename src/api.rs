@@ -13,6 +13,7 @@ use cliclack::{
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt;
 use url::Url;
 
 use crate::config;
@@ -29,9 +30,9 @@ pub struct Link {
     pub api_key: Option<String>,
 }
 
-impl Link {
-    pub fn to_string(&self) -> String {
-        format!("{} - {}", self.name, self.api)
+impl fmt::Display for Link {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} - {}", self.name, self.api)
     }
 }
 
@@ -76,7 +77,7 @@ impl LinkDb {
 
     /// Returns true if a link with the given name already exists
     pub fn contains(&self, name: &str) -> bool {
-        self.links.iter().find(|l| l.name == name).is_some()
+        self.links.iter().any(|l| l.name == name)
     }
 
     /// Modifies an existing link by its name
@@ -109,8 +110,8 @@ impl LinkDb {
         let mut file = fs::File::create(self.db)?;
         for link in self.links {
             let encoded = serde_json::to_string(&link)?;
-            file.write(encoded.as_bytes())?;
-            file.write("\n".as_bytes())?;
+            let _ = file.write(encoded.as_bytes())?;
+            let _ = file.write("\n".as_bytes())?;
         }
         file.flush()?;
         Ok(())
@@ -134,12 +135,12 @@ impl Node {
             bail!("There are no nodes are linked to the cli-tool. Use 'borderless link' to create a new link");
         } else if selectable.len() == 1 {
             let link = selectable.into_iter().next().unwrap();
-            info(format!("Use node {}", link.to_string()))?;
+            info(format!("Use node {}", link))?;
             return Ok(Node { link });
         }
         let mut prompt = select("Select node:");
         for item in selectable {
-            prompt = prompt.item(item.clone(), item.name, item.api.to_string());
+            prompt = prompt.item(item.clone(), item.name, item.api);
         }
         let selection = prompt.filter_mode().interact()?;
         Ok(Node { link: selection })
@@ -148,7 +149,7 @@ impl Node {
     /// Writes an introduction
     pub fn write_introduction(&self, introduction: IntroductionDto) -> Result<bool> {
         let endpoint = "/v0/write/introduction";
-        let url = self.link.api.join(&endpoint)?;
+        let url = self.link.api.join(endpoint)?;
 
         let body = serde_json::to_vec(&introduction)?;
 
@@ -175,7 +176,7 @@ impl Node {
     /// Returns the node-info
     pub fn node_info(&self) -> Result<Value> {
         let endpoint = "/v0/node/info";
-        let url = self.link.api.join(&endpoint)?;
+        let url = self.link.api.join(endpoint)?;
 
         let result = reqwest::blocking::get(url)?;
         let body = result.bytes()?;
@@ -187,7 +188,7 @@ impl Node {
     /// Returns the list of network peers for a node
     pub fn network_peers(&self) -> Result<Vec<(String, BorderlessId)>> {
         let endpoint = "/v0/node/cert?node_type=contract";
-        let url = self.link.api.join(&endpoint)?;
+        let url = self.link.api.join(endpoint)?;
 
         let result = reqwest::blocking::get(url)?;
         let body = result.bytes()?;
