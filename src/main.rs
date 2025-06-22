@@ -181,6 +181,23 @@ mod config {
             return None;
         }
 
+        // check XDG_CONFIG_DIRS for system wide configs
+        let config_dirs = env::var("XDG_CONFIG_DIRS").unwrap_or_else(|_| "/etc/xdg".to_string());
+
+        for dir in config_dirs.split(":") {
+            if dir.trim().is_empty() {
+                continue;
+            }
+
+            let config_file = PathBuf::from(dir)
+                .join(CONFIG_DIR_NAME)
+                .join(CONFIG_FILE_NAME);
+
+            if config_file.exists() {
+                return Some(config_file);
+            }
+        }
+
         Some(base_dir)
     }
 
@@ -237,23 +254,6 @@ mod config {
         // check if config file exists
         if config_file.exists() {
             return Some(config_file);
-        }
-
-        // check XDG_CONFIG_DIRS for system wide configs
-        let config_dirs = env::var("XDG_CONFIG_DIRS").unwrap_or_else(|_| "/etc/xdg".to_string());
-
-        for dir in config_dirs.split(":") {
-            if dir.trim().is_empty() {
-                continue;
-            }
-
-            let config_file = PathBuf::from(dir)
-                .join(CONFIG_DIR_NAME)
-                .join(CONFIG_FILE_NAME);
-
-            if config_file.exists() {
-                return Some(config_file);
-            }
         }
 
         None
